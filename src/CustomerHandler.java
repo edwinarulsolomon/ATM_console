@@ -1,186 +1,203 @@
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 public class CustomerHandler {
-    static int trams_id=1;
-    Scanner sc=new Scanner(System.in);
-    Customer customer;
-    ATM atm;
-    List<Customer> customers=new ArrayList<>();
-    HashMap<Integer,Customer> pinmap=new HashMap<>();
-    public void addCustomer(Customer customer)
-    {
-        this.customer=customer;
+    private static int transId = 1;
+    private final Scanner sc = new Scanner(System.in);
+    private final List<Customer> customers = new ArrayList<>();
+    private final Map<Integer, Customer> pinMap = new HashMap<>();
+
+    public void addCustomer(Customer customer) {
         customers.add(customer);
-        pinmap.put(customer.getAccount_no(),customer);
+        pinMap.put(customer.getAccountNo(), customer);
     }
 
-    public void showCustomers()
-    {
-        if(customers.size()==0) System.out.println("No Customers found");
+    public void showCustomers() {
+        if (customers.isEmpty())
+            System.out.println("No customers found.");
         else
-        {
-            for(Customer customer:customers)
-            {
-                System.out.println(customer);
+            customers.forEach(System.out::println);
+    }
+
+    public Customer authenticate(int accNo, int pin) {
+        Customer c = pinMap.get(accNo);
+        return (c != null && c.getPinNumber() == pin) ? c : null;
+    }
+
+    public void showOperations(Customer customer, ATM atm) {
+        while (true) {
+            System.out.println("\n1. Check Balance");
+            System.out.println("2. Withdraw");
+            System.out.println("3. Transfer Money");
+            System.out.println("4. Mini Statement");
+            System.out.println("5. Exit");
+            System.out.print("Enter your choice: ");
+            int choice = sc.nextInt();
+
+            switch (choice) {
+                case 1 -> System.out.println("Your balance: Rs." + customer.getBalanceAmount());
+                case 2 -> handleWithdrawal(customer, atm);
+                case 3 -> handleTransfer(customer);
+                case 4 -> showMiniStatement(customer);
+                case 5 -> {
+                    System.out.println("Thank you for using our ATM!");
+                    return;
+                }
+                default -> System.out.println("Invalid choice!");
             }
         }
     }
 
-    public boolean authenticate(int accNo, int pin) {
-        if(!pinmap.containsKey(accNo)) return false;
-        int pinnumber=pinmap.get(accNo).pin_number;
-        return pinnumber==pin;
-    }
-    public String getTransaction(String sourse,int to,int from,int amount)
-    {
-        if(sourse.equals("ATM"))
-        {
-            return "Debited "+amount+" from "+sourse;
+    private void handleWithdrawal(Customer customer, ATM atm) {
+        System.out.print("Enter amount to withdraw: ");
+        int amount = sc.nextInt();
+
+        if (amount < 100 || amount > 10000 || amount % 100 != 0) {
+            System.out.println("Invalid amount! Enter between 100–10000 in multiples of 100.");
+            return;
         }
-        else if(to!=-1)
-        {
-            return "Fund Transfer to Acc "+to;
+        if (customer.getBalanceAmount() < amount) {
+            System.out.println("Insufficient account balance!");
+            return;
         }
-        else {
-            return "Fund Transfer from Acc "+from;
+        if (atm.getTotalAmount() < amount) {
+            System.out.println("ATM doesn’t have enough cash!");
+            return;
         }
-    }
-    public void showOperations(ATM atm)
-    {
-        this.atm=atm;
-        while(true) {
-            System.out.println("1.CheckBalance : ");
-            System.out.println("2.Withdraw : ");
-            System.out.println("3.Transfer Money : ");
-            System.out.println("4.Mini Statement : ");
-            int choice=sc.nextInt();
-            switch (choice)
-            {
-                case 1->
-                {
-                    System.out.println(customer.getBalance_amount());
+
+        int original = amount;
+        int atmTh = atm.getThousands();
+        int atmFh = atm.getFiveHundreds();
+        int atmH  = atm.getHundreds();
+
+        int useTh = 0, useFh = 0, useH = 0;
+
+        if (original <= 5000) {
+            // Limits: 1×1000, 6×500, 10×100
+            useTh = Math.min(1, Math.min(original / 1000, atmTh));
+            amount -= useTh * 1000;
+
+            useFh = Math.min(amount / 500, Math.min(6, atmFh));
+            amount -= useFh * 500;
+
+            useH = Math.min(amount / 100, Math.min(10, atmH));
+            amount -= useH * 100;
+
+            // Try to reduce 500s by replacing them with 100s if possible
+            while (useFh > 0) {
+                int remainderIfReduced = ( (useFh * 500) + (amount) ); // amount is what remains after current picks
+                int neededHundredsToReplace = (remainderIfReduced) / 100;
+                if (remainderIfReduced % 100 != 0) break; // can't exactly replace
+                // how many hundreds ATM has available beyond already allocated useH
+                int availableHundreds = atmH - useH;
+                if (neededHundredsToReplace <= availableHundreds && neededHundredsToReplace <= 10 - useH) {
+                    // replace all current five-hundreds with hundreds
+                    useH += neededHundredsToReplace;
+                    amount = 0;
+                    useFh = 0;
+                    break;
                 }
-                case 2->
-                {
-                    System.out.println("Enter the amount withdraw");
-                    int amount=sc.nextInt();
-                    if(checkWthdraw(amount))
-                    {
-                        atm.decrease(amount);
-                        customer.balance_amount -= amount;
-                        String message=getTransaction("ATM",-1,-1,amount);
-                        Transaction transaction=new Transaction(trams_id++,message,"Debit",amount,"ATM");
-                        customer.addTransactionList(transaction);
-                        }
-                    else {
-                       if(customer.balance_amount<amount) System.out.println("Not enought money in your account");
-                       else System.out.println("Not enough mmoney in the ATM ");
+                // try reducing one 500 at a time (replace 1x500 with 5x100)
+                if (atmH - useH >= 5 && (10 - useH) >= 5) {
+                    useFh -= 1;
+                    useH += 5;
+                    // amount doesn't change because we're converting 500 -> five 100s
+                } else break;
+            }
+        } else {
+            // original > 5000: prefer five-hundreds as much as possible (bounded by ATM)
+            // Use up to atmFh of 500s to cover remainder after 1000s optionally or use them first
+            // Strategy: try many 500s first, then thousands, then hundreds.
+            useFh = Math.min(original / 500, atmFh);
+            amount -= useFh * 500;
+
+            // fill with thousands next
+            useTh = Math.min(amount / 1000, atmTh);
+            amount -= useTh * 1000;
+
+            // remaining hundreds
+            useH = Math.min(amount / 100, atmH);
+            amount -= useH * 100;
+
+            // If still remainder, try alternative: use fewer 500s to allow thousands usage
+            if (amount != 0) {
+                // attempt to free some 500s to use thousands (if possible)
+                int tempUseFh = useFh;
+                int tempAmount = amount;
+                while (tempUseFh > 0) {
+                    // convert one 500 back to amount, try to use a 1000 instead
+                    tempUseFh--;
+                    tempAmount += 500;
+                    int tryTh = Math.min(tempAmount / 1000, atmTh - useTh);
+                    int remAfterTh = tempAmount - tryTh * 1000;
+                    int tryH = Math.min(remAfterTh / 100, atmH - useH);
+                    if (remAfterTh - tryH * 100 == 0) {
+                        // accept this redistribution
+                        useFh = tempUseFh;
+                        useTh += tryTh;
+                        useH += tryH;
+                        amount = 0;
+                        break;
                     }
                 }
-                case 3->
-                {
-                    System.out.println("Enter the Receiver Account Number :");
-                    int acc_no=sc.nextInt();
-                    sc.nextLine();
-                    if(pinmap.containsKey(acc_no)) {
-                        Customer reciever=pinmap.get(acc_no);
-                        System.out.println("Enter the Amount :");
-                        int amount = sc.nextInt();
-                        sc.nextLine();
-                        if(amount<=customer.balance_amount) {
-                            String sen = getTransaction("Transfer", reciever.getAccount_no(), -1, amount);
-                            int cus_amount=customer.getBalance_amount();
-                            System.out.println(cus_amount);
-                            cus_amount-=amount;
-                            customer.setBalance_amount(cus_amount);
-                            Transaction t1 = new Transaction(trams_id++, sen, "Debit", amount, "Fund Transfer");
-                            customer.addTransactionList(t1);
-                        }
-                        else System.out.println("Insufficient Amount");
-                    }
-                    else System.out.println("Invalid Account Number !");
-
-                }
-                case 4->
-                {
-                    List<Transaction> cur=customer.transactionList;
-                    for(Transaction t:cur) System.out.println(t);
-                }
             }
         }
 
+        // Final check
+        if (amount != 0) {
+            System.out.println("ATM cannot dispense the requested denomination with its current note counts.");
+            return;
+        }
+
+        // Update ATM and customer
+        atm.setThousands(atmTh - useTh);
+        atm.setFiveHundreds(atmFh - useFh);
+        atm.setHundreds(atmH - useH);
+        atm.decrease(original);
+        customer.setBalanceAmount(customer.getBalanceAmount() - original);
+
+        Transaction t = new Transaction(transId++, "Cash withdrawn", "Debit", original, "ATM");
+        customer.addTransaction(t);
+
+        System.out.printf("Withdrawal successful! Dispensed: %d×1000, %d×500, %d×100%n", useTh, useFh, useH);
+        atm.showATMBalance();
     }
-    public boolean checkWthdraw(int amount)
-    {
-        if(amount>10000 && amount<100)
-        {
-            System.out.println("Amount should be between 100 and 10000");
-            return false;
-        }
-        else if(customer.balance_amount <amount && atm.getTot_amount() <amount)
-        {
-            if(customer.balance_amount<amount) System.out.println("Not enought money in your account");
-            else System.out.println("Not enough money in the ATM ");
-        }
-        else if(amount%100!=0)
-        {
-            System.out.println("Amount should be in the multiples of 100");
-            return false;
-        }
-        int thousand=0;
-        int fivehund=0;
-        int onehund=0;
-        if(amount<=5000)
-        {
-            while(amount!=0)
-            {
-                if(amount>=1000 && thousand!=1)
-                {
-                    amount-=1000;
-                    thousand++;
-                }
-                else if(amount<1000 && fivehund!=6)
-                {
-                    amount-=500;
-                    fivehund++;
-                }
-                else {
-                    amount-=100;
-                    onehund++;
-                }
-            }
 
-        }
-        else {
-            while(amount!=0)
-            {
-                if(amount>5000 && thousand!=3)
-                {
-                    amount-=1000;
-                    thousand++;
-                }
-                else if(amount<=5000 && fivehund!=2)
-                {
-                    amount-=500;
-                    fivehund++;
-                }
-                else {
-                    amount-=100;
-                    onehund++;
-                }
-            }
 
+    private void handleTransfer(Customer sender) {
+        System.out.print("Enter receiver account number: ");
+        int accNo = sc.nextInt();
+
+        if (!pinMap.containsKey(accNo)) {
+            System.out.println("Invalid account number!");
+            return;
         }
-        int thous=atm.getThousands()-thousand;
-        int five=atm.getFivehundread()-fivehund;
-        int one=atm.getHundreads()-onehund;
-        atm.setThousands(thous);
-        atm.setFivehundread(five);
-        atm.setHundreads(one);
-        System.out.println(atm);
-        return true;
+
+        Customer receiver = pinMap.get(accNo);
+        System.out.print("Enter transfer amount: ");
+        int amount = sc.nextInt();
+
+        if (amount <= 0 || amount > sender.getBalanceAmount()) {
+            System.out.println("Insufficient funds!");
+            return;
+        }
+
+        sender.setBalanceAmount(sender.getBalanceAmount() - amount);
+        receiver.setBalanceAmount(receiver.getBalanceAmount() + amount);
+
+        Transaction t1 = new Transaction(transId++, "Transfer to " + receiver.getAccountNo(), "Debit", amount, "Fund Transfer");
+        Transaction t2 = new Transaction(transId++, "Transfer from " + sender.getAccountNo(), "Credit", amount, "Fund Transfer");
+
+        sender.addTransaction(t1);
+        receiver.addTransaction(t2);
+
+        System.out.println("Transfer successful!");
+    }
+
+    private void showMiniStatement(Customer customer) {
+        List<Transaction> transactions = customer.getTransactions();
+        if (transactions.isEmpty())
+            System.out.println("No transactions yet.");
+        else
+            transactions.forEach(System.out::println);
     }
 }

@@ -1,15 +1,15 @@
 public class ATM {
-    private int tot_amount=0;
-    int thousands=20;
-    int hundreads=100;
-    int fivehundread=300;
+    private int totalAmount = 0;
+    private int thousands = 20;
+    private int hundreds = 100;
+    private int fiveHundreds = 300;
 
-    public int getHundreads() {
-        return hundreads;
+    public int getHundreds() {
+        return hundreds;
     }
 
-    public void setHundreads(int hundreads) {
-        this.hundreads = hundreads;
+    public void setHundreds(int hundreds) {
+        this.hundreds = hundreds;
     }
 
     public int getThousands() {
@@ -20,47 +20,46 @@ public class ATM {
         this.thousands = thousands;
     }
 
-    public int getFivehundread() {
-        return fivehundread;
+    public int getFiveHundreds() {
+        return fiveHundreds;
     }
 
-    public void setFivehundread(int fivehundread) {
-        this.fivehundread = fivehundread;
+    public void setFiveHundreds(int fiveHundreds) {
+        this.fiveHundreds = fiveHundreds;
     }
 
-    public ATM()
-    {
-
-    }
-    public int getTot_amount() {
-        return tot_amount;
+    public int getTotalAmount() {
+        return totalAmount;
     }
 
-    public void setTot_amount(int n) {
-        this.tot_amount += (100000*n);
-        int tem=tot_amount;
-        thousands*=n;
-        hundreads*=n;
-        fivehundread*=n;
-        System.out.println("Available Money :"+tot_amount);
-        System.out.println("Rs.1000  -> "+thousands);
-        System.out.println("Rs.500 -> "+fivehundread);
-        System.out.println("Rs.100 -> "+hundreads);
+    public void loadCash(int n) {
+        this.totalAmount += (100000 * n);
+        thousands *= n;
+        hundreds *= n;
+        fiveHundreds *= n;
 
+        System.out.println("\nCash Loaded Successfully!");
+        showATMBalance();
+    }
+
+    public void showATMBalance() {
+        System.out.println("Available Money : " + totalAmount);
+        System.out.println("Rs.1000 -> " + thousands);
+        System.out.println("Rs.500  -> " + fiveHundreds);
+        System.out.println("Rs.100  -> " + hundreds);
+    }
+
+    public void decrease(int amount) {
+        totalAmount -= amount;
     }
 
     @Override
     public String toString() {
         return "ATM{" +
                 "thousands=" + thousands +
-                ", hundreads=" + hundreads +
-                ", fivehundread=" + fivehundread +
+                ", fiveHundreds=" + fiveHundreds +
+                ", hundreds=" + hundreds +
+                ", totalAmount=" + totalAmount +
                 '}';
-    }
-
-    public void decrease(int n)
-    {
-        tot_amount-=n;
-        System.out.println(tot_amount);
     }
 }

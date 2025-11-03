@@ -1,26 +1,26 @@
 public class Transaction {
-    int trans_id;
-    String trans_remark;
-    String type;
-    int amount;
-    int from;
-    int to;
-    String sourse;
-    public Transaction(int trans_id, String trans_remark, String type, int amount,String sourse) {
-        this.trans_id = trans_id;
-        this.trans_remark = trans_remark;
+    private int transId;
+    private String remark;
+    private String type;
+    private int amount;
+    private String source;
+
+    public Transaction(int transId, String remark, String type, int amount, String source) {
+        this.transId = transId;
+        this.remark = remark;
         this.type = type;
         this.amount = amount;
-        this.sourse=sourse;
+        this.source = source;
     }
 
     @Override
     public String toString() {
         return "Transaction{" +
-                "trans_id=" + trans_id +
-                ", trans_remark='" + trans_remark + '\'' +
+                "transId=" + transId +
+                ", remark='" + remark + '\'' +
                 ", type='" + type + '\'' +
                 ", amount=" + amount +
+                ", source='" + source + '\'' +
                 '}';
     }
 }
